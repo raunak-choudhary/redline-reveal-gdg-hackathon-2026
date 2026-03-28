@@ -155,16 +155,6 @@ window.initMap = function () {
     state.mapPolygons[borough] = polygon;
   }
 
-  // Borough labels rendered as map overlays (avoids deprecated Marker API)
-  for (const [borough, center] of Object.entries(BOROUGH_CENTERS)) {
-    const infoWindow = new google.maps.InfoWindow({
-      content: `<div style="background:transparent;border:none;box-shadow:none;color:#8b949e;font-size:10px;font-weight:600;font-family:Inter,sans-serif;pointer-events:none;">${borough.toUpperCase()}</div>`,
-      position: center,
-      disableAutoPan: true,
-    });
-    infoWindow.open(state.map);
-  }
-
   // Load zip code GeoJSON for ZIP view
   loadZipGeoJson();
 

@@ -318,7 +318,7 @@ header .status-bar {
   flex: 1;
   padding: 5px 0;
   border: 1px solid var(--border);
-  background: transparent;
+  background: var(--bg-card);
   color: var(--text-muted);
   font-family: var(--font);
   font-size: 11px;
@@ -329,14 +329,15 @@ header .status-bar {
 }
 
 .view-toggle-btn:hover {
-  border-color: var(--accent);
-  color: var(--accent);
+  border-color: #e63946;
+  color: #e6edf3;
+  background: #21262d;
 }
 
 .view-toggle-btn.active {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #0d1117;
+  background: #e63946;
+  border-color: #e63946;
+  color: #ffffff;
   font-weight: 700;
 }
 
