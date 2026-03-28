@@ -129,7 +129,6 @@ window.initMap = function () {
     disableDefaultUI: true,
     zoomControl: true,
     mapTypeControl: false,
-    mapId: "redline-reveal",   // required for AdvancedMarkerElement
   });
 
   // Draw borough polygons
@@ -154,15 +153,19 @@ window.initMap = function () {
     state.mapPolygons[borough] = polygon;
   }
 
-  // Add borough labels using AdvancedMarkerElement (Marker is deprecated)
+  // Borough label markers (google.maps.Marker deprecation warning is cosmetic — still works)
   for (const [borough, center] of Object.entries(BOROUGH_CENTERS)) {
-    const label = document.createElement("div");
-    label.textContent = borough.toUpperCase();
-    label.style.cssText = "color:#8b949e;font-size:10px;font-weight:600;font-family:Inter,sans-serif;pointer-events:none;";
-    new google.maps.marker.AdvancedMarkerElement({
+    new google.maps.Marker({
       position: center,
       map: state.map,
-      content: label,
+      icon: { path: google.maps.SymbolPath.CIRCLE, scale: 0 },
+      label: {
+        text: borough.toUpperCase(),
+        color: "#8b949e",
+        fontSize: "10px",
+        fontWeight: "600",
+        fontFamily: "Inter, sans-serif",
+      },
     });
   }
 
