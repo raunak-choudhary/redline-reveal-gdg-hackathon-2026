@@ -854,6 +854,9 @@ function renderLenderRankings(data, borough, race) {
   document.getElementById("lender-query-label").textContent =
     `Top offenders · ${borough} · ${race} applicants · ${source}`;
 
+  // Auto-switch to Investigate tab to show results
+  switchTab("investigate");
+
   list.innerHTML = rankings.map((r, i) => {
     const ratio = r.disparity_ratio || 0;
     const ratioClass = ratio >= 2.5 ? "high" : ratio >= 1.5 ? "medium" : "low";
@@ -874,6 +877,16 @@ function renderLenderRankings(data, borough, race) {
   }).join("");
 }
 
+// ─── Tab Navigation ───────────────────────────────────────────────────────────
+function switchTab(tabId) {
+  document.querySelectorAll(".tab-btn").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.tab === tabId);
+  });
+  document.querySelectorAll(".tab-content").forEach(el => {
+    el.classList.toggle("active", el.id === `tab-${tabId}`);
+  });
+}
+
 // ─── Example Chip Clicks ──────────────────────────────────────────────────────
 function sendTextQuery(query) {
   if (!state.ws || state.ws.readyState !== WebSocket.OPEN) {
@@ -891,6 +904,28 @@ document.addEventListener("DOMContentLoaded", () => {
   setupVisualizer();
 
   document.getElementById("mic-btn").addEventListener("click", startListening);
+
+  // Tab switching
+  document.querySelectorAll(".tab-btn").forEach(btn => {
+    btn.addEventListener("click", () => switchTab(btn.dataset.tab));
+  });
+
+  // Investigate tab — lender quick-chips
+  document.querySelectorAll(".lender-chip").forEach(chip => {
+    chip.addEventListener("click", () => {
+      const borough = chip.dataset.borough;
+      const race = chip.dataset.race;
+      loadLenderRankings(borough, race);
+      switchTab("investigate");
+    });
+  });
+
+  // Investigate tab — manual analyze button
+  document.getElementById("lender-analyze-btn").addEventListener("click", () => {
+    const borough = document.getElementById("lender-borough-select").value;
+    const race = document.getElementById("lender-race-select").value;
+    loadLenderRankings(borough, race);
+  });
 
   document.querySelectorAll(".view-toggle-btn").forEach(btn => {
     btn.addEventListener("click", () => setViewMode(btn.dataset.mode));
