@@ -80,6 +80,17 @@ if os.path.exists(frontend_path):
 
 # ─── REST Endpoints ───────────────────────────────────────────────────────────
 
+@app.get("/config")
+async def get_config():
+    """
+    Returns non-secret client config (Google Maps key is low-risk — browser-visible by design).
+    Keeps the key out of committed HTML source.
+    """
+    return {
+        "google_maps_api_key": os.environ.get("GOOGLE_MAPS_API_KEY", ""),
+    }
+
+
 @app.get("/")
 async def root():
     index_path = os.path.join(frontend_path, "index.html")

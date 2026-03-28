@@ -78,9 +78,9 @@ Key endpoint: /aggregations
 Parameters: year=2022, geography_type=zip_code
 Filter: derived_race, state_code=NY, action_taken=1,3
 
-### Environment Variables (already in .env)
-GEMINI_API_KEY=AIzaSyB5toWw_YwJDMjtNG813Jqk5b_BEEflgKM
-GOOGLE_MAPS_API_KEY=AIzaSyCeZyqzMPKR6MlTmVUf-H6eTNd94FpVWro
+### Environment Variables (set in .env — never commit actual values)
+GEMINI_API_KEY=<your-gemini-api-key>
+GOOGLE_MAPS_API_KEY=<your-google-maps-api-key>
 GOOGLE_CLOUD_PROJECT=redline-reveal
 GOOGLE_CLOUD_REGION=us-central1
 

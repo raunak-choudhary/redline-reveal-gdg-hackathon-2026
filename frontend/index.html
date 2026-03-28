@@ -128,18 +128,25 @@
 
 <script src="app.js"></script>
 <script>
-  // Inject API key at load time (served from backend template or env)
-  window.GOOGLE_MAPS_API_KEY = "AIzaSyCeZyqzMPKR6MlTmVUf-H6eTNd94FpVWro";
   window.BACKEND_URL = window.location.origin;
   window.WS_URL = (location.protocol === "https:" ? "wss:" : "ws:") + "//" + location.host + "/ws/voice";
-</script>
-<script>
-  // Load Google Maps after app.js sets up the callback
-  const script = document.createElement("script");
-  script.src = `https://maps.googleapis.com/maps/api/js?key=${window.GOOGLE_MAPS_API_KEY}&libraries=geometry&callback=initMap&loading=async`;
-  script.async = true;
-  script.defer = true;
-  document.head.appendChild(script);
+
+  // Fetch config (including Maps key) from backend — never hardcode keys in HTML
+  fetch("/config")
+    .then(r => r.json())
+    .then(cfg => {
+      window.GOOGLE_MAPS_API_KEY = cfg.google_maps_api_key;
+      const script = document.createElement("script");
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${cfg.google_maps_api_key}&libraries=geometry&callback=initMap&loading=async`;
+      script.async = true;
+      script.defer = true;
+      document.head.appendChild(script);
+    })
+    .catch(err => {
+      console.error("Failed to load config:", err);
+      document.getElementById("loading-overlay").querySelector("p").textContent =
+        "Failed to load configuration. Is the backend running?";
+    });
 </script>
 </body>
 </html>
