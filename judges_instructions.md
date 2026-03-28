@@ -213,10 +213,10 @@ Expected:
 
 ## Scoring Notes for Judges
 
-### UX / Innovation (40%)
+### UX / Innovation
 The interface removes the technical barrier between the public and federal lending data entirely. A community activist, a first-time homebuyer, or a civil rights attorney can walk up, speak a question in plain English, and get the answer in seconds. The voice + map combination makes the data visceral in a way that a data table never could.
 
-### Technical Implementation (30%)
+### Technical Implementation 
 - Three Google ADK agents wired in A2A pattern (not a chatbot, not RAG)
 - Live HMDA API queries via FastMCP server — no static dataset
 - Google BigQuery caching layer for lender analysis
@@ -224,7 +224,7 @@ The interface removes the technical barrier between the public and federal lendi
 - Real-time choropleth at both borough and ZIP code granularity
 - Deployed on Cloud Run with Secret Manager — production-grade infrastructure
 
-### Demo Quality (30%)
+### Demo Quality
 Every feature in this document is live and working. The data is real. The voice works. The map updates in real time. The lender names are real institutions from federal records. There are no loading screens that hide pre-computed answers.
 
 ---
