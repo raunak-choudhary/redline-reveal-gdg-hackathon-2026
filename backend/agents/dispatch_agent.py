@@ -1,5 +1,5 @@
 """
-DispatchAgent — gemini-2.0-flash-live-001
+DispatchAgent — gemini-2.5-flash-native-audio-latest
 Bidirectional voice streaming agent.
 Receives PCM audio from browser, calls HMDAAnalystAgent via A2A AgentTool,
 speaks narrative response back, emits map data for frontend choropleth.
@@ -62,7 +62,7 @@ def create_dispatch_agent() -> LlmAgent:
     """Create the DispatchAgent with A2A AgentTool wrapping HMDAAnalystAgent."""
     return LlmAgent(
         name="DispatchAgent",
-        model="gemini-2.0-flash-live-001",
+        model="gemini-2.5-flash-native-audio-latest",
         instruction=DISPATCH_INSTRUCTION,
         tools=[AgentTool(agent=hmda_analyst)],
         description="Voice-powered NYC mortgage bias explorer using Gemini Live + HMDA data",

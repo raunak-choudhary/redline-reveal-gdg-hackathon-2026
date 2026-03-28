@@ -72,10 +72,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Serve frontend static files
 frontend_path = os.path.join(os.path.dirname(__file__), "..", "frontend")
-if os.path.exists(frontend_path):
-    app.mount("/static", StaticFiles(directory=frontend_path), name="static")
 
 
 # ─── REST Endpoints ───────────────────────────────────────────────────────────
@@ -93,10 +90,7 @@ async def get_config():
 
 @app.get("/")
 async def root():
-    index_path = os.path.join(frontend_path, "index.html")
-    if os.path.exists(index_path):
-        return FileResponse(index_path)
-    return {"status": "ok", "service": "Redline Reveal"}
+    return FileResponse(os.path.join(frontend_path, "index.html"))
 
 
 @app.get("/health")
@@ -211,10 +205,16 @@ async def voice_websocket(websocket: WebSocket):
                 "text": text,
             }))
 
-        # Run agent in background task
-        agent_task = asyncio.create_task(
-            session.run(on_audio_chunk, on_text_chunk)
-        )
+        # Run agent in background task; suppress expected disconnect errors
+        async def _run_agent():
+            try:
+                await session.run(on_audio_chunk, on_text_chunk)
+            except Exception as exc:
+                msg = str(exc)
+                if "disconnect" not in msg.lower() and "closed" not in msg.lower():
+                    logger.error("Agent task error [%s]: %s", session_id, exc)
+
+        agent_task = asyncio.create_task(_run_agent())
 
         # Receive loop: browser → agent
         while True:
@@ -262,3 +262,9 @@ async def voice_websocket(websocket: WebSocket):
         await session.close()
         _voice_sessions.pop(session_id, None)
         logger.info("Voice session cleaned up: %s", session_id)
+
+
+# Mount frontend static files at "/" AFTER all route definitions so API routes
+# take priority. StaticFiles(html=True) serves index.html for unknown paths.
+if os.path.exists(frontend_path):
+    app.mount("/", StaticFiles(directory=frontend_path, html=True), name="frontend")
