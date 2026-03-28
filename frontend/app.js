@@ -8,7 +8,7 @@
 // ─── State ───────────────────────────────────────────────────────────────────
 const state = {
   ws: null,
-  mediaRecorder: null,
+  recognition: null,
   audioContext: null,
   analyser: null,
   audioStream: null,
@@ -491,87 +491,196 @@ async function drainAudioQueue() {
   }
 }
 
-// ─── Microphone Capture ───────────────────────────────────────────────────────
+// ─── Microphone Capture (Web Speech API) ─────────────────────────────────────
 async function startListening() {
   if (state.isListening) { stopListening(); return; }
 
-  // Ensure WebSocket connected
-  if (!state.ws || state.ws.readyState !== WebSocket.OPEN) {
-    connectWebSocket();
-    await new Promise(r => setTimeout(r, 1000));
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    addTranscript("agent", "⚠️ Voice recognition requires Chrome or Edge. Please use one of those browsers.");
+    return;
   }
 
+  // Mic stream for visualizer (optional — don't block on failure)
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      audio: { sampleRate: 16000, channelCount: 1, echoCancellation: true, noiseSuppression: true },
-    });
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     state.audioStream = stream;
-
-    // Analyser for visualizer
-    const actx = new AudioContext({ sampleRate: 16000 });
+    const actx = new AudioContext();
     const analyser = actx.createAnalyser();
     analyser.fftSize = 128;
-    const source = actx.createMediaStreamSource(stream);
-    source.connect(analyser);
+    actx.createMediaStreamSource(stream).connect(analyser);
     state.analyser = analyser;
-
-    // ScriptProcessor to get raw PCM
-    const processor = actx.createScriptProcessor(4096, 1, 1);
-    source.connect(processor);
-    processor.connect(actx.destination);
-
-    processor.onaudioprocess = (e) => {
-      if (!state.isListening || !state.ws || state.ws.readyState !== WebSocket.OPEN) return;
-      const float32 = e.inputBuffer.getChannelData(0);
-      // Convert Float32 → Int16 PCM
-      const int16 = new Int16Array(float32.length);
-      for (let i = 0; i < float32.length; i++) {
-        const s = Math.max(-1, Math.min(1, float32[i]));
-        int16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
-      }
-      state.ws.send(int16.buffer);
-    };
-
-    state.mediaRecorder = processor;
     state.audioContext = actx;
-    state.isListening = true;
+  } catch (_) { /* visualizer optional */ }
 
-    document.getElementById("mic-btn").classList.add("listening");
-    document.getElementById("mic-label").textContent = "Listening... (click to stop)";
-    setStatus("listening", "Listening");
-    animateVisualizer(true);
+  const recognition = new SpeechRecognition();
+  recognition.lang = "en-US";
+  recognition.interimResults = false;
+  recognition.maxAlternatives = 1;
+  recognition.continuous = false;
+  state.recognition = recognition;
+  state.isListening = true;
 
-  } catch (err) {
-    console.error("Microphone error:", err);
-    addTranscript("agent", "⚠️ Could not access microphone. Please check permissions.");
-  }
+  document.getElementById("mic-btn").classList.add("listening");
+  document.getElementById("mic-label").textContent = "Listening... (click to stop)";
+  setStatus("listening", "Listening");
+  animateVisualizer(true);
+
+  recognition.onresult = (event) => {
+    const transcript = event.results[0][0].transcript.trim();
+    if (transcript) handleVoiceQuery(transcript);
+  };
+
+  recognition.onerror = (e) => {
+    console.error("Speech recognition error:", e.error);
+    if (e.error !== "aborted") {
+      addTranscript("agent", "⚠️ Could not recognize speech — please try again.");
+    }
+    _resetMicUI();
+  };
+
+  recognition.onend = () => {
+    if (state.isListening) _resetMicUI();
+  };
+
+  recognition.start();
 }
 
 function stopListening() {
   state.isListening = false;
-
+  if (state.recognition) {
+    try { state.recognition.stop(); } catch (_) {}
+    state.recognition = null;
+  }
   if (state.audioStream) {
     state.audioStream.getTracks().forEach(t => t.stop());
     state.audioStream = null;
   }
+  animateVisualizer(false);
+  _resetMicUI();
+}
 
-  // Signal end of speech to agent
-  if (state.ws && state.ws.readyState === WebSocket.OPEN) {
-    state.ws.send(JSON.stringify({ type: "end_of_speech" }));
+function _resetMicUI() {
+  state.isListening = false;
+  document.getElementById("mic-btn").classList.remove("listening", "processing");
+  document.getElementById("mic-label").textContent = "Click to Speak";
+  if (state.isConnected) setStatus("connected", "Connected");
+}
+
+// ─── Voice Query Handler ──────────────────────────────────────────────────────
+function handleVoiceQuery(query) {
+  // Stop mic UI
+  if (state.audioStream) {
+    state.audioStream.getTracks().forEach(t => t.stop());
+    state.audioStream = null;
   }
-
+  animateVisualizer(false);
   document.getElementById("mic-btn").classList.remove("listening");
   document.getElementById("mic-btn").classList.add("processing");
   document.getElementById("mic-label").textContent = "Processing...";
   setStatus("processing", "Processing");
-  animateVisualizer(false);
 
-  // After agent responds, reset UI
-  setTimeout(() => {
-    document.getElementById("mic-btn").classList.remove("processing");
-    document.getElementById("mic-label").textContent = "Click to Speak";
-    if (state.isConnected) setStatus("connected", "Connected");
-  }, 3000);
+  addTranscript("user", query);
+
+  // Parse demographics
+  let race = null;
+  if (/latino|hispanic/i.test(query)) race = "Hispanic";
+  else if (/black|african american/i.test(query)) race = "Black";
+  else if (/asian/i.test(query)) race = "Asian";
+  else if (/white/i.test(query)) race = "White";
+
+  // Parse borough
+  let borough = null;
+  if (/queens|jackson heights|flushing|astoria|jamaica|long island city/i.test(query)) borough = "Queens";
+  else if (/brooklyn|bedford|flatbush|crown heights|bushwick|east new york|canarsie/i.test(query)) borough = "Brooklyn";
+  else if (/manhattan|harlem|upper east|upper west|lower east|washington heights/i.test(query)) borough = "Manhattan";
+  else if (/bronx/i.test(query)) borough = "Bronx";
+  else if (/staten island/i.test(query)) borough = "Staten Island";
+
+  // Update map filter
+  if (race) {
+    loadMapData(race);
+    document.getElementById("map-filter-display").textContent = `${race} applicants`;
+  } else {
+    loadMapData(null);
+  }
+
+  if (borough && race) {
+    Promise.all([
+      fetch(`${window.BACKEND_URL}/borough/${encodeURIComponent(borough)}?race=${encodeURIComponent(race)}`).then(r => r.json()),
+      fetch(`${window.BACKEND_URL}/borough/${encodeURIComponent(borough)}?race=White`).then(r => r.json()),
+    ]).then(([data, whiteData]) => {
+      const rate = data.denial_rate_pct;
+      const whiteRate = whiteData.denial_rate_pct;
+      updateStats(`${race} (${borough})`, rate, whiteRate, data.total);
+
+      const ratio = (whiteRate > 0) ? (rate / whiteRate).toFixed(1) : null;
+      const narrative = _buildRaceNarrative(race, borough, rate, whiteRate, ratio, data);
+      addTranscript("agent", narrative);
+      speakResponse(narrative);
+      _resetMicUI();
+    }).catch(e => { console.error(e); _resetMicUI(); });
+
+  } else if (borough) {
+    fetch(`${window.BACKEND_URL}/borough/${encodeURIComponent(borough)}?breakdown=true`)
+      .then(r => r.json())
+      .then(data => {
+        updateStatsFromBreakdown(data, borough);
+        const narrative = _buildBoroughNarrative(borough, data);
+        addTranscript("agent", narrative);
+        speakResponse(narrative);
+        _resetMicUI();
+      }).catch(e => { console.error(e); _resetMicUI(); });
+
+  } else {
+    fetch(`${window.BACKEND_URL}/summary`)
+      .then(r => r.json())
+      .then(data => {
+        const lines = Object.entries(data.borough_summaries || {})
+          .filter(([, s]) => s.denial_rate_pct !== null)
+          .map(([b, s]) => `${b} at ${s.denial_rate_pct} percent`)
+          .join(", ");
+        const narrative = `Across New York City's five boroughs, mortgage denial rates in 2022 expose a stark pattern of inequality: ${lines}. These are real federal HMDA numbers, the living legacy of decades of discriminatory lending.`;
+        addTranscript("agent", narrative);
+        speakResponse(narrative);
+        _resetMicUI();
+      }).catch(e => { console.error(e); _resetMicUI(); });
+  }
+}
+
+function _buildRaceNarrative(race, borough, rate, whiteRate, ratio, data) {
+  const denied = data.denied != null ? data.denied.toLocaleString() : "?";
+  const total = data.total != null ? data.total.toLocaleString() : "?";
+  let text = `In ${borough}, ${race} applicants were denied mortgages at a rate of ${rate} percent in 2022`;
+  if (whiteRate && ratio) {
+    text += ` — ${ratio} times higher than the ${whiteRate} percent rate for White applicants in the same borough`;
+  }
+  text += `. Out of ${total} applications, ${denied} families were denied their dream of homeownership. These numbers reflect a systemic pattern that echoes decades of discriminatory lending in New York City.`;
+  return text;
+}
+
+function _buildBoroughNarrative(borough, data) {
+  const breakdown = data.race_breakdown || {};
+  const mostImpacted = Object.entries(breakdown)
+    .filter(([k, v]) => v.denial_rate_pct != null && k !== "White" && k !== "Joint")
+    .sort((a, b) => (b[1].denial_rate_pct || 0) - (a[1].denial_rate_pct || 0))[0];
+
+  if (mostImpacted) {
+    const [group, stats] = mostImpacted;
+    const white = breakdown["White"]?.denial_rate_pct;
+    return `In ${borough}, ${group} applicants face the highest denial rates at ${stats.denial_rate_pct} percent in 2022${white ? `, compared to just ${white} percent for White applicants` : ""}. This persistent disparity reflects systemic barriers to homeownership that continue decades after formal redlining ended.`;
+  }
+  return `${borough} shows significant racial disparities in mortgage denial rates based on 2022 federal HMDA data.`;
+}
+
+function speakResponse(text) {
+  if (!window.speechSynthesis) return;
+  window.speechSynthesis.cancel();
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.rate = 0.92;
+  utterance.pitch = 1.0;
+  utterance.volume = 1.0;
+  window.speechSynthesis.speak(utterance);
 }
 
 // ─── Example Chip Clicks ──────────────────────────────────────────────────────
