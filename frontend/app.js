@@ -19,6 +19,8 @@ const state = {
   currentFilter: null,
   map: null,
   animFrameId: null,
+  viewMode: "borough",    // "borough" | "zip"
+  zipMapData: {},         // zip → { denial_rate_pct, borough, ... }
 };
 
 // Borough center coordinates for labeling
@@ -163,6 +165,9 @@ window.initMap = function () {
     infoWindow.open(state.map);
   }
 
+  // Load zip code GeoJSON for ZIP view
+  loadZipGeoJson();
+
   // Load initial map data
   loadMapData(null);
 
@@ -172,23 +177,108 @@ window.initMap = function () {
   }, 800);
 };
 
+// ─── ZIP Code GeoJSON Layer ───────────────────────────────────────────────────
+function loadZipGeoJson() {
+  fetch("/static/nyc_zips.geojson")
+    .then(r => r.json())
+    .then(geojson => {
+      state.map.data.addGeoJson(geojson);
+      state.map.data.setStyle({ visible: false });
+
+      state.map.data.addListener("mouseover", (e) => {
+        const zip = e.feature.getProperty("postalCode");
+        const borough = e.feature.getProperty("borough");
+        const stats = state.zipMapData[zip] || {};
+        showZipTooltip(zip, borough, stats, e);
+      });
+      state.map.data.addListener("mousemove", (e) => moveTooltip(e));
+      state.map.data.addListener("mouseout", hideTooltip);
+      state.map.data.addListener("click", (e) => {
+        const borough = e.feature.getProperty("borough");
+        if (borough) onBoroughClick(borough);
+      });
+    })
+    .catch(e => console.error("Failed to load zip GeoJSON:", e));
+}
+
+function _applyZipStyles(zipMap) {
+  state.map.data.setStyle((feature) => {
+    const zip = feature.getProperty("postalCode");
+    const stats = zipMap[zip] || {};
+    const rate = stats.denial_rate_pct;
+    return {
+      fillColor: rateToColor(rate),
+      fillOpacity: rate !== null ? 0.78 : 0.22,
+      strokeColor: "#21262d",
+      strokeWeight: 0.5,
+      visible: true,
+    };
+  });
+}
+
+function setViewMode(mode) {
+  state.viewMode = mode;
+
+  // Borough polygons
+  for (const polygon of Object.values(state.mapPolygons)) {
+    polygon.setOptions({ visible: mode === "borough" });
+  }
+
+  // ZIP layer
+  if (mode === "zip") {
+    if (Object.keys(state.zipMapData).length > 0) {
+      _applyZipStyles(state.zipMapData);
+    }
+  } else {
+    state.map.data.setStyle({ visible: false });
+  }
+
+  // Toggle button UI
+  document.querySelectorAll(".view-toggle-btn").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.mode === mode);
+  });
+
+  // Update overlay label
+  document.getElementById("map-year-display").textContent =
+    mode === "zip" ? "HMDA 2022 · NYC ZIP Codes" : "HMDA 2022 · NYC Boroughs";
+}
+
+function showZipTooltip(zip, borough, stats, event) {
+  const tooltip = document.getElementById("borough-tooltip");
+  const rate = stats.denial_rate_pct;
+  document.getElementById("tt-borough").textContent = `ZIP ${zip} · ${borough || ""}`;
+  document.getElementById("tt-rate").textContent = rate !== null ? `${rate}%` : "No data";
+  document.getElementById("tt-detail").textContent =
+    stats.total ? `${stats.denied?.toLocaleString()} denied / ${stats.total?.toLocaleString()} total` : "";
+  tooltip.style.display = "block";
+  moveTooltip(event);
+}
+
 // ─── Choropleth Update ────────────────────────────────────────────────────────
 function updateChoropleth(data) {
   state.currentMapData = data;
   const boroughData = data.borough_data || {};
+  const zipMap = data.zip_map || {};
   const filter = data.demographic_filter || "All applicants";
 
-  // Update polygons with colors
+  // Store zip data for toggle
+  state.zipMapData = zipMap;
+
+  // Update borough polygons
   for (const [borough, polygon] of Object.entries(state.mapPolygons)) {
     const stats = boroughData[borough] || {};
     const rate = stats.denial_rate_pct;
-    const color = rateToColor(rate);
-
     polygon.setOptions({
-      fillColor: color,
+      fillColor: rateToColor(rate),
       fillOpacity: rate !== null ? 0.80 : 0.35,
+      visible: state.viewMode === "borough",
     });
     polygon.set("stats", stats);
+  }
+
+  // Update zip layer if active
+  if (state.viewMode === "zip" && Object.keys(zipMap).length > 0) {
+    _applyZipStyles(zipMap);
   }
 
   // Update overlay
@@ -702,6 +792,10 @@ document.addEventListener("DOMContentLoaded", () => {
   setupVisualizer();
 
   document.getElementById("mic-btn").addEventListener("click", startListening);
+
+  document.querySelectorAll(".view-toggle-btn").forEach(btn => {
+    btn.addEventListener("click", () => setViewMode(btn.dataset.mode));
+  });
 
   document.querySelectorAll(".example-chip").forEach(chip => {
     chip.addEventListener("click", () => {
