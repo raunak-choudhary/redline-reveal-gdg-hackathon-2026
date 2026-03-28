@@ -1,0 +1,22 @@
+[project]
+name = "redline-reveal"
+version = "0.1.0"
+description = "Voice-powered mortgage bias explorer for NYC"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.30.0",
+    "websockets>=13.0",
+    "httpx>=0.27.0",
+    "python-dotenv>=1.0.0",
+    "google-adk>=0.1.0",
+    "fastmcp>=2.0.0",
+    "pydantic>=2.0.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.uv]
+dev-dependencies = []
