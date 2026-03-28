@@ -622,6 +622,8 @@ function handleVoiceQuery(query) {
     }).catch(e => { console.error(e); _resetMicUI(); });
 
   } else if (borough) {
+    loadMapData(null);
+    document.getElementById("map-filter-display").textContent = "All applicants";
     fetch(`${window.BACKEND_URL}/borough/${encodeURIComponent(borough)}?breakdown=true`)
       .then(r => r.json())
       .then(data => {
