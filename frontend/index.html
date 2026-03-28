@@ -7,6 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="icon" href="/static/favicon.ico" type="image/x-icon" />
   <link rel="stylesheet" href="/static/style.css" />
 </head>
 <body>
@@ -137,7 +138,7 @@
     .then(cfg => {
       window.GOOGLE_MAPS_API_KEY = cfg.google_maps_api_key;
       const script = document.createElement("script");
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${cfg.google_maps_api_key}&libraries=geometry&callback=initMap&loading=async`;
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${cfg.google_maps_api_key}&libraries=geometry,marker&callback=initMap&loading=async`;
       script.async = true;
       script.defer = true;
       document.head.appendChild(script);
