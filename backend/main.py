@@ -18,8 +18,13 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from dotenv import load_dotenv
 
-# Load .env before importing ADK
-load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
+# Make backend/ importable regardless of CWD (works from project root too)
+_HERE = os.path.dirname(os.path.abspath(__file__))
+if _HERE not in sys.path:
+    sys.path.insert(0, _HERE)
+
+# Load .env — abspath makes this CWD-independent
+load_dotenv(os.path.join(_HERE, "..", ".env"))
 os.environ.setdefault("GOOGLE_GENAI_USE_VERTEXAI", "0")
 
 from agents.dispatch_agent import VoiceSession
@@ -72,7 +77,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-frontend_path = os.path.join(os.path.dirname(__file__), "..", "frontend")
+# Use abspath(__file__) so path is correct regardless of CWD when uvicorn starts
+frontend_path = os.path.realpath(
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "frontend")
+)
 
 
 # ─── REST Endpoints ───────────────────────────────────────────────────────────
