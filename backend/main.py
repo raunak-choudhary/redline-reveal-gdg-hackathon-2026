@@ -101,15 +101,16 @@ async def health():
 async def get_map_data(race: Optional[str] = None, year: int = 2022):
     try:
         if race:
-            data = await get_all_boroughs_denial_rates(year, race)
+            # Race-filtered: never cache — return fresh data directly
+            return await get_all_boroughs_denial_rates(year, race)
         else:
             async with _map_data_lock:
                 if _current_map_data:
                     return _current_map_data
             data = await get_all_boroughs_denial_rates(year)
-        async with _map_data_lock:
-            _current_map_data.update(data)
-        return data
+            async with _map_data_lock:
+                _current_map_data.update(data)
+            return data
     except Exception as e:
         logger.error("Error fetching map data: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
