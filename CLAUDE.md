@@ -128,3 +128,17 @@ hmda_analyst = LlmAgent(
 - Map visualization is the VISUAL WOW
 - Voice must actually work, no mocks
 - Stop and tell user before any gcloud deployment commands
+
+### Git Strategy (IMPORTANT)
+- Repo: https://github.com/raunak-choudhary/redline-reveal-gdg-hackathon-2026.git
+- Commit after EVERY major step completion
+- Push to GitHub after every commit
+- Commit messages must be descriptive:
+  "feat: add FastMCP server with HMDA API integration"
+  "feat: implement HMDAAnalystAgent with zip code analysis"
+  "feat: add DispatchAgent with Gemini Live bidirectional streaming"
+  "feat: build FastAPI WebSocket backend"
+  "feat: add Google Maps choropleth frontend"
+  "fix: handle HMDA API rate limiting"
+- NEVER commit .env file
+- Add all new files with git add before committing
