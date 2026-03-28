@@ -395,4 +395,5 @@ MIT License. Data is public domain (federal government CFPB HMDA dataset).
 ## Author
 
 **Raunak Choudhary**
+**NYU MS CS Grad Student**
 GDG NYC Hackathon 2026
