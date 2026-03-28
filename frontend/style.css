@@ -233,6 +233,103 @@ header .status-bar {
 }
 .transcript-msg.agent .label { color: var(--red); font-size: 10px; font-weight: 600; text-transform: uppercase; }
 
+/* ─── LENDER INVESTIGATION PANEL ─────────────────────────────────────────── */
+#lender-section {
+  padding: 16px;
+  border-top: 1px solid var(--border);
+}
+
+#lender-section h3 {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+#lender-badge {
+  font-size: 9px;
+  background: #1a3a5c;
+  color: #58a6ff;
+  border: 1px solid #1f4f8a;
+  border-radius: 3px;
+  padding: 1px 5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+#lender-query-label {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-style: italic;
+  margin-bottom: 10px;
+}
+
+#lender-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.lender-placeholder {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 12px 0;
+}
+
+.lender-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+
+.lender-rank {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
+  min-width: 16px;
+}
+
+.lender-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.lender-name {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lender-rate {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.lender-ratio {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--red);
+  white-space: nowrap;
+}
+
+.lender-ratio.low { color: #d4a017; }
+.lender-ratio.medium { color: var(--red); }
+.lender-ratio.high { color: #ff4d4f; }
+
 /* ─── STATS PANEL ─────────────────────────────────────────────────────────── */
 #stats-section {
   padding: 16px;

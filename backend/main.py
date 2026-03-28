@@ -33,6 +33,7 @@ import os
 os.environ.setdefault("GOOGLE_GENAI_USE_VERTEXAI", "0")
 
 from agents.dispatch_agent import VoiceSession
+from mcp_server.lender_tools import get_lender_bias_ranking
 from mcp_server.hmda_tools import (
     get_all_boroughs_denial_rates,
     get_borough_denial_rate,
@@ -128,6 +129,16 @@ async def get_borough_data(
             return await get_borough_race_breakdown(borough, year)
         return await get_borough_denial_rate(borough, year, race)
     except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/lenders/{borough}")
+async def get_lender_rankings(borough: str, race: str = "Black", year: int = 2022):
+    """Rank top lenders by racial disparity ratio in a borough. Cached in BigQuery."""
+    try:
+        return await get_lender_bias_ranking(borough, race, year)
+    except Exception as e:
+        logger.error("Lender ranking error: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
 
 

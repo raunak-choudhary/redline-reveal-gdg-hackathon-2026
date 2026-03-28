@@ -17,7 +17,8 @@ RUN uv pip install --system --no-cache \
     python-dotenv \
     google-adk \
     fastmcp \
-    pydantic
+    pydantic \
+    google-cloud-bigquery
 
 # Copy all source
 COPY backend/ ./backend/

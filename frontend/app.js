@@ -666,6 +666,9 @@ function handleVoiceQuery(query) {
 
   addTranscript("user", query);
 
+  // Detect lender investigation queries
+  const isLenderQuery = /which bank|which lender|worst bank|worst lender|who is discriminat|what bank|what lender|bank discriminat|lender discriminat|name the bank|name the lender/i.test(query);
+
   // Parse demographics
   let race = null;
   if (/latino|hispanic/i.test(query)) race = "Hispanic";
@@ -690,20 +693,36 @@ function handleVoiceQuery(query) {
   }
 
   if (borough && race) {
-    Promise.all([
-      fetch(`${window.BACKEND_URL}/borough/${encodeURIComponent(borough)}?race=${encodeURIComponent(race)}`).then(r => r.json()),
-      fetch(`${window.BACKEND_URL}/borough/${encodeURIComponent(borough)}?race=White`).then(r => r.json()),
-    ]).then(([data, whiteData]) => {
-      const rate = data.denial_rate_pct;
-      const whiteRate = whiteData.denial_rate_pct;
-      updateStats(`${race} (${borough})`, rate, whiteRate, data.total);
+    // Always load lender rankings for borough + race queries
+    loadLenderRankings(borough, race);
 
-      const ratio = (whiteRate > 0) ? (rate / whiteRate).toFixed(1) : null;
-      const narrative = _buildRaceNarrative(race, borough, rate, whiteRate, ratio, data);
-      addTranscript("agent", narrative);
-      speakResponse(narrative);
-      _resetMicUI();
-    }).catch(e => { console.error(e); _resetMicUI(); });
+    if (isLenderQuery) {
+      // Lender-focused query — fetch rankings and build lender narrative
+      fetch(`${window.BACKEND_URL}/lenders/${encodeURIComponent(borough)}?race=${encodeURIComponent(race)}`)
+        .then(r => r.json())
+        .then(data => {
+          const rankings = data.lender_rankings || [];
+          const narrative = _buildLenderNarrative(borough, race, rankings);
+          addTranscript("agent", narrative);
+          speakResponse(narrative);
+          _resetMicUI();
+        }).catch(e => { console.error(e); _resetMicUI(); });
+    } else {
+      Promise.all([
+        fetch(`${window.BACKEND_URL}/borough/${encodeURIComponent(borough)}?race=${encodeURIComponent(race)}`).then(r => r.json()),
+        fetch(`${window.BACKEND_URL}/borough/${encodeURIComponent(borough)}?race=White`).then(r => r.json()),
+      ]).then(([data, whiteData]) => {
+        const rate = data.denial_rate_pct;
+        const whiteRate = whiteData.denial_rate_pct;
+        updateStats(`${race} (${borough})`, rate, whiteRate, data.total);
+
+        const ratio = (whiteRate > 0) ? (rate / whiteRate).toFixed(1) : null;
+        const narrative = _buildRaceNarrative(race, borough, rate, whiteRate, ratio, data);
+        addTranscript("agent", narrative);
+        speakResponse(narrative);
+        _resetMicUI();
+      }).catch(e => { console.error(e); _resetMicUI(); });
+    }
 
   } else if (borough) {
     loadMapData(null);
@@ -782,6 +801,20 @@ function _buildBoroughNarrative(borough, data) {
   return `${borough} shows significant racial disparities in mortgage denial rates based on 2022 federal HMDA data.`;
 }
 
+function _buildLenderNarrative(borough, race, rankings) {
+  if (!rankings || rankings.length === 0) {
+    return `Lender data for ${race} applicants in ${borough} is currently being retrieved from federal HMDA records.`;
+  }
+  const top = rankings[0];
+  const second = rankings[1];
+  let text = `In ${borough}, ${top.institution_name} showed the worst disparity for ${race} applicants — denying them at ${top.denial_rate_pct} percent, ${top.disparity_ratio} times the rate for White applicants.`;
+  if (second) {
+    text += ` ${second.institution_name} was close behind at ${second.disparity_ratio} times.`;
+  }
+  text += ` These are not fringe lenders — this is institutional discrimination documented in federal records, happening right now.`;
+  return text;
+}
+
 function speakResponse(text) {
   if (!window.speechSynthesis) return;
   window.speechSynthesis.cancel();
@@ -790,6 +823,55 @@ function speakResponse(text) {
   utterance.pitch = 1.0;
   utterance.volume = 1.0;
   window.speechSynthesis.speak(utterance);
+}
+
+// ─── Lender Investigation Panel ──────────────────────────────────────────────
+function loadLenderRankings(borough, race) {
+  const list = document.getElementById("lender-list");
+  const label = document.getElementById("lender-query-label");
+  list.innerHTML = '<div class="lender-placeholder">Investigating lenders...</div>';
+  label.textContent = `Analyzing top lenders in ${borough} for ${race} applicants`;
+
+  fetch(`${window.BACKEND_URL}/lenders/${encodeURIComponent(borough)}?race=${encodeURIComponent(race)}`)
+    .then(r => r.json())
+    .then(data => renderLenderRankings(data, borough, race))
+    .catch(e => {
+      console.error("Lender fetch error:", e);
+      list.innerHTML = '<div class="lender-placeholder">Could not load lender data</div>';
+    });
+}
+
+function renderLenderRankings(data, borough, race) {
+  const list = document.getElementById("lender-list");
+  const rankings = data.lender_rankings || [];
+
+  if (rankings.length === 0) {
+    list.innerHTML = '<div class="lender-placeholder">No lender data available</div>';
+    return;
+  }
+
+  const source = data.source === "cache" ? "BigQuery cache" : "live HMDA data";
+  document.getElementById("lender-query-label").textContent =
+    `Top offenders · ${borough} · ${race} applicants · ${source}`;
+
+  list.innerHTML = rankings.map((r, i) => {
+    const ratio = r.disparity_ratio || 0;
+    const ratioClass = ratio >= 2.5 ? "high" : ratio >= 1.5 ? "medium" : "low";
+    const ratioLabel = ratio ? `${ratio}×` : "—";
+    const rateStr = r.denial_rate_pct != null
+      ? `${r.denial_rate_pct}% denied · White: ${r.white_denial_rate_pct ?? "?"}%`
+      : "Insufficient data";
+
+    return `
+      <div class="lender-row">
+        <div class="lender-rank">#${i + 1}</div>
+        <div class="lender-info">
+          <div class="lender-name" title="${r.institution_name}">${r.institution_name}</div>
+          <div class="lender-rate">${rateStr} · ${r.total?.toLocaleString()} apps</div>
+        </div>
+        <div class="lender-ratio ${ratioClass}">${ratioLabel}</div>
+      </div>`;
+  }).join("");
 }
 
 // ─── Example Chip Clicks ──────────────────────────────────────────────────────

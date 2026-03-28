@@ -18,6 +18,7 @@ from google.adk.runners import InMemoryRunner
 from google.genai import types as genai_types
 
 from .hmda_analyst import hmda_analyst
+from .lender_investigator import lender_investigator
 
 logger = logging.getLogger(__name__)
 
@@ -47,14 +48,16 @@ Jackson Heights sits in Queens County, where over 1,200 minority families had th
 These numbers reflect a systemic pattern that echoes decades of discriminatory lending in NYC."
 
 IMPORTANT:
-- Always call HMDAAnalystAgent — never make up statistics
+- Always call the appropriate agent — never make up statistics
 - Keep responses short enough to be spoken naturally (under 30 seconds of speech)
 - After speaking, wait for the next user query
 - If the user mentions a specific neighborhood, pass that to HMDAAnalystAgent
 - If they mention a race/ethnicity, pass that as the demographic filter
+- If the user asks about WHICH BANKS or LENDERS are discriminating, call LenderInvestigatorAgent
 
 You have access to:
-- HMDAAnalystAgent: Call this with the user's location and demographic profile
+- HMDAAnalystAgent: Call with location and demographic profile for borough-level analysis
+- LenderInvestigatorAgent: Call when user asks which specific banks/lenders are discriminating
 """
 
 
@@ -64,7 +67,10 @@ def create_dispatch_agent() -> LlmAgent:
         name="DispatchAgent",
         model="gemini-2.5-flash-native-audio-latest",
         instruction=DISPATCH_INSTRUCTION,
-        tools=[AgentTool(agent=hmda_analyst)],
+        tools=[
+        AgentTool(agent=hmda_analyst),
+        AgentTool(agent=lender_investigator),
+    ],
         description="Voice-powered NYC mortgage bias explorer using Gemini Live + HMDA data",
     )
 
