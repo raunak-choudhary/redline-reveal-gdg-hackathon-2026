@@ -33,7 +33,7 @@ const BOROUGH_CENTERS = {
 // Borough approximate polygon paths (GeoJSON-style, simplified)
 const BOROUGH_PATHS = {
   Manhattan: [
-    {lat:40.879,-lng:-73.909},{lat:40.875,lng:-73.910},{lat:40.870,lng:-73.912},
+    {lat:40.879,lng:-73.909},{lat:40.875,lng:-73.910},{lat:40.870,lng:-73.912},
     {lat:40.856,lng:-73.930},{lat:40.845,lng:-73.940},{lat:40.830,lng:-73.941},
     {lat:40.820,lng:-73.945},{lat:40.810,lng:-73.950},{lat:40.800,lng:-73.955},
     {lat:40.796,lng:-73.970},{lat:40.793,lng:-73.975},{lat:40.784,lng:-73.979},
