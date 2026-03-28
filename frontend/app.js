@@ -658,6 +658,10 @@ function _resetMicUI() {
 }
 
 // ─── Voice Query Handler ──────────────────────────────────────────────────────
+function _isRelevantQuery(query) {
+  return /mortgage|buy|home|house|loan|denial|discriminat|applicant|borrow|lend|redline|borough|nyc|new york|rent|purchase|real estate|housing|property|homeowner/i.test(query);
+}
+
 function handleVoiceQuery(query) {
   // Stop mic UI
   if (state.audioStream) {
@@ -724,7 +728,23 @@ function handleVoiceQuery(query) {
         _resetMicUI();
       }).catch(e => { console.error(e); _resetMicUI(); });
 
-  } else {
+  } else if (race) {
+    // Race detected but no specific borough — citywide summary for that race
+    fetch(`${window.BACKEND_URL}/summary?race=${encodeURIComponent(race)}`)
+      .then(r => r.json())
+      .then(data => {
+        const lines = Object.entries(data.borough_summaries || {})
+          .filter(([, s]) => s.denial_rate_pct !== null)
+          .map(([b, s]) => `${b} at ${s.denial_rate_pct} percent`)
+          .join(", ");
+        const narrative = `Across all five NYC boroughs, ${race} applicants faced these mortgage denial rates in 2022: ${lines}. The map has been updated to show ${race} applicant data citywide.`;
+        addTranscript("agent", narrative);
+        speakResponse(narrative);
+        _resetMicUI();
+      }).catch(e => { console.error(e); _resetMicUI(); });
+
+  } else if (_isRelevantQuery(query)) {
+    // No race, no borough, but housing-related — show citywide all-applicants summary
     fetch(`${window.BACKEND_URL}/summary`)
       .then(r => r.json())
       .then(data => {
@@ -737,6 +757,13 @@ function handleVoiceQuery(query) {
         speakResponse(narrative);
         _resetMicUI();
       }).catch(e => { console.error(e); _resetMicUI(); });
+
+  } else {
+    // Off-topic or unrecognized — prompt the user
+    const msg = "I focus on NYC mortgage discrimination data. Try asking about a specific borough or group — for example, 'Show me Black applicants in Brooklyn' or 'What's happening in Queens?'";
+    addTranscript("agent", msg);
+    speakResponse(msg);
+    _resetMicUI();
   }
 }
 
