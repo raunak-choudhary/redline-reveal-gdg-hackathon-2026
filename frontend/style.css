@@ -675,6 +675,13 @@ header .status-bar {
     flex-shrink: 0;
   }
 
+  /* Explicit height needed — Google Maps won't render if parent is height:auto */
+  #map {
+    height: 60vw;
+    min-height: 240px;
+    max-height: 60vh;
+  }
+
   /* Panel full width below map */
   #panel {
     width: 100%;

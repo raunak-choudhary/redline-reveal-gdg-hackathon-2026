@@ -692,6 +692,9 @@ function handleVoiceQuery(query) {
     loadMapData(null);
   }
 
+  // Geocode any specific neighborhood mentioned → zoom map there
+  geocodeNeighborhood(query);
+
   if (borough && race) {
     // Always load lender rankings for borough + race queries
     loadLenderRankings(borough, race);
@@ -875,6 +878,40 @@ function renderLenderRankings(data, borough, race) {
         <div class="lender-ratio ${ratioClass}">${ratioLabel}</div>
       </div>`;
   }).join("");
+}
+
+// ─── Geocoding API — Neighborhood Zoom ───────────────────────────────────────
+const NYC_NEIGHBORHOODS = [
+  // Queens
+  "Jackson Heights", "Flushing", "Astoria", "Jamaica", "Long Island City",
+  "Bayside", "Forest Hills", "Ridgewood", "Sunnyside", "Woodside",
+  // Brooklyn
+  "Bedford-Stuyvesant", "Crown Heights", "Flatbush", "Bushwick",
+  "East New York", "Canarsie", "Williamsburg", "Greenpoint", "Bay Ridge",
+  "Brownsville", "Sunset Park", "Borough Park",
+  // Manhattan
+  "Harlem", "East Harlem", "Washington Heights", "Inwood",
+  "Upper East Side", "Upper West Side", "Lower East Side", "Chinatown",
+  "Hell's Kitchen", "Chelsea", "Morningside Heights",
+  // Bronx
+  "Mott Haven", "Fordham", "Pelham Bay", "South Bronx",
+  "Tremont", "Hunts Point", "Co-op City",
+  // Staten Island
+  "St. George", "Port Richmond", "New Dorp",
+];
+
+function geocodeNeighborhood(query) {
+  if (!state.map || !window.google) return;
+  const found = NYC_NEIGHBORHOODS.find(n => new RegExp(n, "i").test(query));
+  if (!found) return;
+
+  const geocoder = new google.maps.Geocoder();
+  geocoder.geocode({ address: `${found}, New York City, NY` }, (results, status) => {
+    if (status === "OK" && results[0]) {
+      state.map.panTo(results[0].geometry.location);
+      state.map.setZoom(14);
+    }
+  });
 }
 
 // ─── Tab Navigation ───────────────────────────────────────────────────────────
