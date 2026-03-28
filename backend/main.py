@@ -143,6 +143,12 @@ async def root():
     return FileResponse(str(FRONTEND_DIR / "index.html"))
 
 
+def _is_normal_disconnect(msg: str) -> bool:
+    """Return True for benign WebSocket close events (e.g. page refresh)."""
+    lowered = msg.lower()
+    return any(k in lowered for k in ("disconnect", "closed", "1000", "going away", "normal closure"))
+
+
 # ── WebSocket Voice Handler ───────────────────────────────────────────────────
 
 @app.websocket("/ws/voice")
@@ -175,8 +181,9 @@ async def voice_websocket(websocket: WebSocket):
             try:
                 await session.run(on_audio_chunk, on_text_chunk)
             except Exception as exc:
-                msg = str(exc)
-                if "disconnect" not in msg.lower() and "closed" not in msg.lower():
+                msg = str(exc).lower()
+                normal = any(k in msg for k in ("disconnect", "closed", "1000", "going away", "normal closure"))
+                if not normal:
                     logger.error("Agent task error [%s]: %s", session_id, exc)
 
         agent_task = asyncio.create_task(_run_agent())
@@ -213,11 +220,16 @@ async def voice_websocket(websocket: WebSocket):
     except WebSocketDisconnect:
         logger.info("WebSocket disconnected: %s", session_id)
     except Exception as e:
-        logger.error("Voice session error [%s]: %s", session_id, e)
-        try:
-            await websocket.send_text(json.dumps({"type": "error", "message": str(e)}))
-        except Exception:
-            pass
+        msg = str(e)
+        # Suppress clean-close noise (code 1000 = normal closure, client navigated away)
+        if _is_normal_disconnect(msg):
+            logger.info("Voice session closed normally: %s", session_id)
+        else:
+            logger.error("Voice session error [%s]: %s", session_id, e)
+            try:
+                await websocket.send_text(json.dumps({"type": "error", "message": msg}))
+            except Exception:
+                pass
     finally:
         await session.close()
         _voice_sessions.pop(session_id, None)
